@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Timer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .today-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-item h3 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+
+        .stat-item p {
+            opacity: 0.9;
+        }
+
+        .timer-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .subject-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .subject-btn {
+            padding: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+        }
+
+        .subject-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .subject-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .timer-display {
+            font-size: 4em;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #667eea;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .subject-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .subject-item {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .subject-item h4 {
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .period-card {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .period-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .period-summary {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .subject-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .subject-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+
+        .subject-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .subject-time {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .timer-display {
+                font-size: 2.5em;
+            }
+
+            .control-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Study Timer</h1>
+            <p id="current-time"></p>
+        </div>
+
+        <!-- 오늘의 통계 -->
+        <div class="card">
+            <div class="today-stats">
+                <div class="stat-item">
+                    <h3 id="total-hours">0.00</h3>
+                    <p>총 공부시간 (시간)</p>
+                </div>
+                <div class="stat-item">
+                    <h3 id="study-date">오늘</h3>
+                    <p>공부 날짜 (3AM 기준)</p>
+                </div>
+            </div>
+            <div id="subject-stats" class="subject-list"></div>
+        </div>
+
+        <!-- 타이머 섹션 -->
+        <div class="card timer-section">
+            <h2>과목을 선택하세요</h2>
+            <div class="subject-selector" id="subject-selector"></div>
+            
+            <div class="timer-display" id="timer-display">00:00:00</div>
+            
+            <div class="control-buttons">
+                <button class="btn btn-start" id="start-btn" onclick="startTimer()">시작</button>
+                <button class="btn btn-stop" id="stop-btn" onclick="stopTimer()" disabled>정지</button>
+            </div>
+        </div>
+
+        <!-- 통계 탭 -->
+        <div class="card">
+            <div class="tabs">
+                <!-- <button class="tab active" onclick="showTab('daily')">일별 통계</button> -->
+                <button class="tab active" onclick="showTab('weekly')">주간 통계</button>
+                <button class="tab" onclick="showTab('monthly')">월간 통계</button>
+                <button class="tab" onclick="showTab('subjects')">과목별 통계</button>
+            </div>
+
+            <!-- <div id="daily-content" class="tab-content active">
+                <div class="chart-container">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+            </div> -->
+
+            <div id="weekly-content" class="tab-content active">
+                <div class="chart-container">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
+
+            <div id="monthly-content" class="tab-content">
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+
+            <div id="subjects-content" class="tab-content">
+                <h3 style="text-align: center; margin-bottom: 30px; color: #667eea;">📊 과목별 공부시간 비교</h3>
+                <div id="subject-comparison"></div>
+                <div class="chart-container">
+                    <canvas id="subjectChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // 전역 변수
+        let subjects = [];
+        let selectedSubject = null;
+        let timerInterval = null;
+        let startTime = null;
+        let isRunning = false;
+        let charts = {};
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSubjects();
+            loadTodayStats();
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            loadStatistics();
+            loadSubjectComparison();
+        });
+
+        // 현재 시간 업데이트
+        function updateCurrentTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('ko-KR');
+        }
+
+        // 과목 로드
+        async function loadSubjects() {
+            try {
+                const response = await fetch('/api/subjects');
+                subjects = await response.json();
+                
+                const selector = document.getElementById('subject-selector');
+                selector.innerHTML = '';
+                
+                subjects.forEach(subject => {
+                    const btn = document.createElement('button');
+                    btn.className = 'subject-btn';
+                    btn.textContent = subject;
+                    btn.onclick = () => selectSubject(subject);
+                    selector.appendChild(btn);
+                });
+            } catch (error) {
+                showNotification('과목 로드 실패', 'error');
+            }
+        }
+
+        // 과목 선택
+        function selectSubject(subject) {
+            selectedSubject = subject;
+            document.querySelectorAll('.subject-btn').forEach(btn => {
+                btn.classList.remove('selected');
+                if (btn.textContent === subject) {
+                    btn.classList.add('selected');
+                }
+            });
+        }
+
+        // 오늘 통계 로드
+        async function loadTodayStats() {
+            try {
+                const response = await fetch('/api/today-stats');
+                const data = await response.json();
+                
+                document.getElementById('total-hours').textContent = data.total_hours;
+                document.getElementById('study-date').textContent = data.date;
+                
+                const subjectStats = document.getElementById('subject-stats');
+                subjectStats.innerHTML = '';
+                
+                Object.entries(data.subject_times).forEach(([subject, stats]) => {
+                    const div = document.createElement('div');
+                    div.className = 'subject-item';
+                    div.innerHTML = `
+                        <h4>${subject}</h4>
+                        <p>${stats.minutes.toFixed(1)}분 (${stats.hours.toFixed(2)}시간)</p>
+                    `;
+                    subjectStats.appendChild(div);
+                });
+            } catch (error) {
+                showNotification('통계 로드 실패', 'error');
+            }
+        }
+
+        // 타이머 시작
+        function startTimer() {
+            if (!selectedSubject) {
+                showNotification('과목을 선택해주세요', 'error');
+                return;
+            }
+
+            startTime = Date.now();
+            isRunning = true;
+            
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+            
+            timerInterval = setInterval(updateTimerDisplay, 1000);
+            showNotification(`${selectedSubject} 공부 시작!`, 'success');
+        }
+
+        // 타이머 정지
+        async function stopTimer() {
+            if (!isRunning) return;
+            
+            const endTime = Date.now();
+            const duration = (endTime - startTime) / 1000;
+            
+            clearInterval(timerInterval);
+            isRunning = false;
+            
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+            document.getElementById('timer-display').textContent = '00:00:00';
+            
+            // 서버에 기록
+            try {
+                const response = await fetch('/api/record-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        subject: selectedSubject,
+                        start_time: startTime / 1000,
+                        end_time: endTime / 1000,
+                        duration: duration
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`${result.duration_minutes}분 기록 완료!`, 'success');
+                    loadTodayStats();
+                    loadStatistics();
+                    loadSubjectComparison();
+                } else {
+                    showNotification(result.message || '기록 실패', 'error');
+                }
+            } catch (error) {
+                showNotification('서버 오류', 'error');
+            }
+        }
+
+        // 타이머 표시 업데이트
+        function updateTimerDisplay() {
+            if (!isRunning) return;
+            
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            
+            const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('timer-display').textContent = display;
+        }
+
+        // 탭 전환
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-content`).classList.add('active');
+            
+            // 과목별 통계 탭이 선택되면 데이터 새로고침
+            if (tabName === 'subjects') {
+                loadSubjectComparison();
+            }
+        }
+
+        // 통계 로드
+        async function loadStatistics() {
+            const periods = [
+                // { name: 'daily', days: 7, chartId: 'dailyChart' }, //
+                { name: 'weekly', days: 14, chartId: 'weeklyChart' },
+                { name: 'monthly', days: 30, chartId: 'monthlyChart' }
+            ];
+
+            for (const period of periods) {
+                try {
+                    const response = await fetch(`/api/statistics/${period.days}`);
+                    const data = await response.json();
+                    
+                    createChart(period.chartId, data, period.name);
+                } catch (error) {
+                    console.error(`Failed to load ${period.name} statistics:`, error);
+                }
+            }
+        }
+
+        // 차트 생성
+        function createChart(chartId, data, type) {
+            const ctx = document.getElementById(chartId).getContext('2d');
+            
+            // 기존 차트 삭제
+            if (charts[chartId]) {
+                charts[chartId].destroy();
+            }
+            
+            const chartData = {
+                labels: Object.keys(data.daily_stats),
+                datasets: [{
+                    label: '공부시간 (시간)',
+                    data: Object.values(data.daily_stats),
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 2,
+                    fill: true
+                }]
+            };
+            
+            charts[chartId] = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '시간'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 과목별 비교 통계 로드
+        async function loadSubjectComparison() {
+            try {
+                const response = await fetch('/api/subject-comparison');
+                const data = await response.json();
+                
+                const container = document.getElementById('subject-comparison');
+                container.innerHTML = '';
+                container.className = 'comparison-grid';
+                
+                const periods = [
+                    { key: '3days', title: '최근 3일', days: 3 },
+                    { key: '7days', title: '최근 7일', days: 7 },
+                    { key: '14days', title: '최근 14일', days: 14 },
+                    { key: '30days', title: '최근 30일', days: 30 }
+                ];
+                
+                periods.forEach(period => {
+                    const periodData = data[period.key];
+                    if (!periodData) return;
+                    
+                    const card = document.createElement('div');
+                    card.className = 'period-card';
+                    
+                    let subjectRows = '';
+                    Object.entries(periodData.subjects).forEach(([subject, stats]) => {
+                        if (stats.hours > 0) {
+                            subjectRows += `
+                                <div class="subject-row">
+                                    <span class="subject-name">${subject}</span>
+                                    <span class="subject-time">${stats.hours}시간</span>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    card.innerHTML = `
+                        <div class="period-title">${period.title}</div>
+                        <div class="period-summary">
+                            총 ${periodData.total_hours}시간<br>
+                            평균 ${periodData.average_per_day}시간/일
+                        </div>
+                        <div class="subject-breakdown">
+                            ${subjectRows || '<div style="text-align: center; color: #999;">공부 기록이 없습니다</div>'}
+                        </div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+                
+                // 과목별 비교 차트 생성
+                createSubjectComparisonChart(data);
+                
+            } catch (error) {
+                console.error('Failed to load subject comparison:', error);
+                showNotification('과목별 통계 로드 실패', 'error');
+            }
+        }
+
+        // 과목별 비교 차트 생성
+        function createSubjectComparisonChart(data) {
+            const ctx = document.getElementById('subjectChart').getContext('2d');
+            
+            if (charts['subjectChart']) {
+                charts['subjectChart'].destroy();
+            }
+            
+            const periods = ['3days', '7days', '14days', '30days'];
+            const periodLabels = ['3일', '7일', '14일', '30일'];
+            
+            const datasets = [];
+            const colors = [
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(54, 162, 235, 0.8)', 
+                'rgba(255, 205, 86, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)',
+                'rgba(199, 199, 199, 0.8)'
+            ];
+            
+            subjects.forEach((subject, index) => {
+                const subjectData = periods.map(period => {
+                    const periodData = data[period];
+                    return periodData && periodData.subjects[subject] ? periodData.subjects[subject].hours : 0;
+                });
+                
+                // 데이터가 있는 과목만 차트에 추가
+                if (subjectData.some(value => value > 0)) {
+                    datasets.push({
+                        label: subject,
+                        data: subjectData,
+                        backgroundColor: colors[index % colors.length],
+                        borderColor: colors[index % colors.length].replace('0.8', '1'),
+                        borderWidth: 2
+                    });
+                }
+            });
+            
+            charts['subjectChart'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: periodLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '시간'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '기간'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: '기간별 과목별 공부시간 비교'
+                        }
+                    }
+                }
+            });
+        }
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
