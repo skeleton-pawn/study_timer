@@ -344,9 +344,10 @@
         <div class="card">
             <div class="tabs">
                 <!-- <button class="tab active" onclick="showTab('daily')">일별 통계</button> -->
-                <button class="tab active" onclick="showTab('weekly')">주간 통계</button>
-                <button class="tab" onclick="showTab('monthly')">월간 통계</button>
+                <!-- <button class="tab active" onclick="showTab('weekly')">주간 통계</button> -->
+                <button class="tab active" onclick="showTab('monthly')">월간 통계</button>
                 <button class="tab" onclick="showTab('subjects')">과목별 통계</button>
+                <button class="tab" onclick="showTab('subject-chart')">과목별 차트</button>
             </div>
 
             <!-- <div id="daily-content" class="tab-content active">
@@ -355,13 +356,13 @@
                 </div>
             </div> -->
 
-            <div id="weekly-content" class="tab-content active">
+            <!-- <div id="weekly-content" class="tab-content active">
                 <div class="chart-container">
                     <canvas id="weeklyChart"></canvas>
                 </div>
-            </div>
+            </div> -->
 
-            <div id="monthly-content" class="tab-content">
+            <div id="monthly-content" class="tab-content active">
                 <div class="chart-container">
                     <canvas id="monthlyChart"></canvas>
                 </div>
@@ -370,6 +371,9 @@
             <div id="subjects-content" class="tab-content">
                 <h3 style="text-align: center; margin-bottom: 30px; color: #667eea;">📊 과목별 공부시간 비교</h3>
                 <div id="subject-comparison"></div>
+            </div>
+            <div id="subject-chart-content" class="tab-content">
+                <!-- 위에서 잘라낸 차트 컨테이너를 이 곳으로 옮깁니다. -->
                 <div class="chart-container">
                     <canvas id="subjectChart"></canvas>
                 </div>
@@ -548,6 +552,9 @@
             // 과목별 통계 탭이 선택되면 데이터 새로고침
             if (tabName === 'subjects') {
                 loadSubjectComparison();
+            } else if (tabName === 'subject-chart') {
+                // '과목별 차트' 탭은 차트만 로드
+                loadAndCreateSubjectChart(); // 아래에 새로 만들 함수입니다.
             }
         }
 
@@ -662,7 +669,7 @@
                 });
                 
                 // 과목별 비교 차트 생성
-                createSubjectComparisonChart(data);
+                // createSubjectComparisonChart(data); //
                 
             } catch (error) {
                 console.error('Failed to load subject comparison:', error);
@@ -746,6 +753,19 @@
                 }
             });
         }
+        // work1 //
+        async function loadAndCreateSubjectChart() {
+            try {
+                const response = await fetch('/api/subject-comparison');
+                const data = await response.json();
+                createSubjectComparisonChart(data);
+            } catch (error) {
+                console.error('Failed to load subject comparison for chart:', error);
+                showNotification('과목별 차트 로드 실패', 'error');
+            }
+        }
+        // work1 end //
+
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
