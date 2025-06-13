@@ -357,15 +357,13 @@
             <div id="subjects-content" class="tab-content">
                 <h3 style="text-align: center; margin-bottom: 30px; color: #667eea;">📊 과목별 공부시간 비교</h3>
                 <div id="subject-comparison"></div>
-            </div>
+            </div>  
             <div id="subject-chart-content" class="tab-content">
-                <!-- 위에서 잘라낸 차트 컨테이너를 이 곳으로 옮깁니다. -->
-                <div class="chart-container">
-                    <canvas id="subjectChart"></canvas>
+                <!-- [수정] 여러 차트를 담을 컨테이너 div -->
+                <div id="subject-charts-container">
+                    <!-- 자바스크립트가 여기에 여러 개의 차트를 생성할 것입니다. -->
                 </div>
             </div>
-        </div>
-    </div>
 
     <!-- 알림 -->
     <div id="notification" class="notification"></div>
@@ -590,10 +588,11 @@
                 data: chartData,
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: true,
                     scales: {
                         y: {
                             beginAtZero: true,
+                            max: 8,
                             title: {
                                 display: true,
                                 text: '시간'
@@ -662,91 +661,20 @@
                 showNotification('과목별 통계 로드 실패', 'error');
             }
         }
-
-        // 과목별 비교 차트 생성
-        function createSubjectComparisonChart(data) {
-            const ctx = document.getElementById('subjectChart').getContext('2d');
-            
-            if (charts['subjectChart']) {
-                charts['subjectChart'].destroy();
-            }
-            
-            const periods = ['3days', '7days', '14days', '30days'];
-            const periodLabels = ['3일', '7일', '14일', '30일'];
-            
-            const datasets = [];
-            const colors = [
-                'rgba(255, 99, 132, 0.8)',
-                'rgba(54, 162, 235, 0.8)', 
-                'rgba(255, 205, 86, 0.8)',
-                'rgba(75, 192, 192, 0.8)',
-                'rgba(153, 102, 255, 0.8)',
-                'rgba(255, 159, 64, 0.8)',
-                'rgba(199, 199, 199, 0.8)'
-            ];
-            
-            subjects.forEach((subject, index) => {
-                const subjectData = periods.map(period => {
-                    const periodData = data[period];
-                    return periodData && periodData.subjects[subject] ? periodData.subjects[subject].hours : 0;
-                });
-                
-                // 데이터가 있는 과목만 차트에 추가
-                if (subjectData.some(value => value > 0)) {
-                    datasets.push({
-                        label: subject,
-                        data: subjectData,
-                        backgroundColor: colors[index % colors.length],
-                        borderColor: colors[index % colors.length].replace('0.8', '1'),
-                        borderWidth: 2
-                    });
-                }
-            });
-            
-            charts['subjectChart'] = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: periodLabels,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '시간'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: '기간'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: '기간별 과목별 공부시간 비교'
-                        }
-                    }
-                }
-            });
-        }
         async function loadAndCreateSubjectChart() {
             try {
+                // 1. 과목별 비교 데이터를 서버에서 가져옵니다.
                 const response = await fetch('/api/subject-comparison');
                 const data = await response.json();
+                
+                // 2. 가져온 데이터로 차트를 생성하는 함수를 호출합니다.
                 createSubjectComparisonChart(data);
+
             } catch (error) {
-                console.error('Failed to load subject comparison for chart:', error);
-                showNotification('과목별 차트 로드 실패', 'error');
+                console.error('Failed to load subject comparison for charts:', error);
+                showNotification('과목별 차트 데이터 로드 실패', 'error');
+                // 에러 발생 시 차트 컨테이너에 메시지를 표시합니다.
+                document.getElementById('subject-charts-container').innerHTML = '<p style="text-align:center; color:#999;">차트를 불러오는 중 오류가 발생했습니다.</p>';
             }
         }
         function showNotification(message, type = 'success') {
@@ -758,6 +686,135 @@
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 3000);
+        }
+        function createSubjectComparisonChart(data) {
+            const container = document.getElementById('subject-charts-container');
+            
+            // 1. 기존 차트 파괴 및 컨테이너 비우기
+            Object.values(charts).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+            container.innerHTML = '';
+            
+            const periods = [
+                { key: '3days', title: '최근 3일' },
+                { key: '7days', title: '최근 7일' },
+                { key: '14days', title: '최근 14일' },
+                { key: '30days', title: '최근 30일' }
+            ];
+
+            const globalColors = [
+                'rgba(255, 99, 132, 0.8)', 'rgba(54, 162, 235, 0.8)', 'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)', 'rgba(255, 159, 64, 0.8)', 'rgba(255, 205, 86, 0.8)',
+                'rgba(199, 199, 199, 0.8)', 'rgba(231, 76, 60, 0.8)'
+            ];
+
+            // 2. 기간별로 순회하며 차트 생성
+            periods.forEach(period => {
+                const periodData = data[period.key];
+
+                // 차트를 감싸고 제목을 포함할 div 생성
+                const chartWrapper = document.createElement('div');
+                chartWrapper.className = 'chart-wrapper'; // CSS 스타일링을 위한 클래스
+                chartWrapper.style.marginBottom = '50px'; // 차트 간 간격
+
+                // 제목 생성
+                const title = document.createElement('h3');
+                title.textContent = `📊 ${period.title} 과목별 공부 시간`;
+                title.style.textAlign = 'center';
+                title.style.color = '#667eea';
+                chartWrapper.appendChild(title);
+
+                // 데이터가 없는 경우
+                if (!periodData || Object.keys(periodData.subjects).length === 0 || periodData.total_hours === 0) {
+                    const noDataMessage = document.createElement('p');
+                    noDataMessage.textContent = '이 기간의 공부 기록이 없습니다.';
+                    noDataMessage.style.textAlign = 'center';
+                    noDataMessage.style.padding = '20px';
+                    noDataMessage.style.color = '#999';
+                    chartWrapper.appendChild(noDataMessage);
+                    container.appendChild(chartWrapper);
+                    return; // 다음 기간으로 넘어감
+                }
+                // 공부 시간이 0보다 큰 과목만 필터링하고 시간순으로 정렬
+                const filteredSubjects = Object.entries(periodData.subjects)
+                    .filter(([subject, stats]) => stats.hours > 0)
+                    .sort((a, b) => b[1].hours - a[1].hours);
+
+                const labels = filteredSubjects.map(entry => entry[0]);
+                const values = filteredSubjects.map(entry => entry[1].hours);
+                // [추가] 1. 과목 수에 따라 차트 높이를 동적으로 계산
+                const numLabels = labels.length;
+                const barHeight = 40; // 각 막대(과목)에 할당할 높이 (px) - 이 값을 조절하여 간격을 변경할 수 있습니다.
+                const padding = 80;   // X축, 제목 등 추가적인 여백
+                const dynamicHeight = (numLabels * barHeight) + padding;
+
+                // 캔버스 생성
+                const canvas = document.createElement('canvas');
+                const chartId = `subjectChart-${period.key}`;
+                canvas.id = chartId;
+                
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'chart-container';
+                
+                chartContainer.style.height = `${dynamicHeight}px`; 
+                
+                chartContainer.appendChild(canvas);
+                chartWrapper.appendChild(chartContainer);
+
+                container.appendChild(chartWrapper);
+                
+                // 3. 해당 기간의 차트 데이터 준비
+                const ctx = canvas.getContext('2d');
+                
+                // 과목별로 일관된 색상을 할당
+                const backgroundColors = labels.map(subject => {
+                    const subjectIndex = subjects.indexOf(subject);
+                    return globalColors[subjectIndex % globalColors.length];
+                });
+
+                // 4. 새로운 차트 생성 (가로 막대 차트)
+                charts[chartId] = new Chart(ctx, {
+                    type: 'bar', // 'bar'는 세로, 'bar'와 indexAxis:'y'를 함께 쓰면 가로
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '공부 시간 (시간)',
+                            data: values,
+                            backgroundColor: backgroundColors,
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // 이 옵션으로 차트를 가로로 만듭니다.
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '시간'
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    autoSkip: false // 모든 과목 이름이 보이도록 설정
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false // 범례는 불필요하므로 숨김
+                            },
+                            title: {
+                                display: false // 개별 차트 제목은 h3로 표시했으므로 숨김
+                            }
+                        }
+                    }
+                });
+            });
         }
     </script>
 </body>
