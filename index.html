@@ -691,9 +691,14 @@
             const container = document.getElementById('subject-charts-container');
             
             // 1. 기존 차트 파괴 및 컨테이너 비우기
-            Object.values(charts).forEach(chart => {
-                if (chart && typeof chart.destroy === 'function') {
-                    chart.destroy();
+            Object.keys(charts).forEach(chartId => {
+                // ID가 'subjectChart-'로 시작하는 차트만 파괴합니다.
+                if (chartId.startsWith('subjectChart-')) {
+                    if (charts[chartId] && typeof charts[chartId].destroy === 'function') {
+                        charts[chartId].destroy();
+                    }
+                    // 파괴된 차트는 전역 charts 객체에서도 깔끔하게 제거합니다.
+                    delete charts[chartId];
                 }
             });
             container.innerHTML = '';
@@ -711,23 +716,20 @@
                 'rgba(199, 199, 199, 0.8)', 'rgba(231, 76, 60, 0.8)'
             ];
 
-            // 2. 기간별로 순회하며 차트 생성
+            // 기간별로 순회하며 차트 생성
             periods.forEach(period => {
                 const periodData = data[period.key];
 
-                // 차트를 감싸고 제목을 포함할 div 생성
                 const chartWrapper = document.createElement('div');
-                chartWrapper.className = 'chart-wrapper'; // CSS 스타일링을 위한 클래스
-                chartWrapper.style.marginBottom = '50px'; // 차트 간 간격
+                chartWrapper.className = 'chart-wrapper';
+                chartWrapper.style.marginBottom = '50px';
 
-                // 제목 생성
                 const title = document.createElement('h3');
                 title.textContent = `📊 ${period.title} 과목별 공부 시간`;
                 title.style.textAlign = 'center';
                 title.style.color = '#667eea';
                 chartWrapper.appendChild(title);
 
-                // 데이터가 없는 경우
                 if (!periodData || Object.keys(periodData.subjects).length === 0 || periodData.total_hours === 0) {
                     const noDataMessage = document.createElement('p');
                     noDataMessage.textContent = '이 기간의 공부 기록이 없습니다.';
@@ -736,48 +738,42 @@
                     noDataMessage.style.color = '#999';
                     chartWrapper.appendChild(noDataMessage);
                     container.appendChild(chartWrapper);
-                    return; // 다음 기간으로 넘어감
+                    return;
                 }
-                // 공부 시간이 0보다 큰 과목만 필터링하고 시간순으로 정렬
+
                 const filteredSubjects = Object.entries(periodData.subjects)
                     .filter(([subject, stats]) => stats.hours > 0)
                     .sort((a, b) => b[1].hours - a[1].hours);
 
                 const labels = filteredSubjects.map(entry => entry[0]);
                 const values = filteredSubjects.map(entry => entry[1].hours);
-                // [추가] 1. 과목 수에 따라 차트 높이를 동적으로 계산
+                
                 const numLabels = labels.length;
-                const barHeight = 40; // 각 막대(과목)에 할당할 높이 (px) - 이 값을 조절하여 간격을 변경할 수 있습니다.
-                const padding = 80;   // X축, 제목 등 추가적인 여백
+                const barHeight = 40;
+                const padding = 80;
                 const dynamicHeight = (numLabels * barHeight) + padding;
 
-                // 캔버스 생성
                 const canvas = document.createElement('canvas');
                 const chartId = `subjectChart-${period.key}`;
                 canvas.id = chartId;
                 
                 const chartContainer = document.createElement('div');
                 chartContainer.className = 'chart-container';
-                
                 chartContainer.style.height = `${dynamicHeight}px`; 
-                
                 chartContainer.appendChild(canvas);
                 chartWrapper.appendChild(chartContainer);
 
                 container.appendChild(chartWrapper);
                 
-                // 3. 해당 기간의 차트 데이터 준비
                 const ctx = canvas.getContext('2d');
                 
-                // 과목별로 일관된 색상을 할당
                 const backgroundColors = labels.map(subject => {
                     const subjectIndex = subjects.indexOf(subject);
                     return globalColors[subjectIndex % globalColors.length];
                 });
 
-                // 4. 새로운 차트 생성 (가로 막대 차트)
                 charts[chartId] = new Chart(ctx, {
-                    type: 'bar', // 'bar'는 세로, 'bar'와 indexAxis:'y'를 함께 쓰면 가로
+                    type: 'bar',
                     data: {
                         labels: labels,
                         datasets: [{
@@ -787,7 +783,7 @@
                         }]
                     },
                     options: {
-                        indexAxis: 'y', // 이 옵션으로 차트를 가로로 만듭니다.
+                        indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
@@ -800,16 +796,16 @@
                             },
                             y: {
                                 ticks: {
-                                    autoSkip: false // 모든 과목 이름이 보이도록 설정
+                                    autoSkip: false
                                 }
                             }
                         },
                         plugins: {
                             legend: {
-                                display: false // 범례는 불필요하므로 숨김
+                                display: false
                             },
                             title: {
-                                display: false // 개별 차트 제목은 h3로 표시했으므로 숨김
+                                display: false
                             }
                         }
                     }
