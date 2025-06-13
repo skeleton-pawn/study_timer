@@ -343,24 +343,10 @@
         <!-- 통계 탭 -->
         <div class="card">
             <div class="tabs">
-                <!-- <button class="tab active" onclick="showTab('daily')">일별 통계</button> -->
-                <!-- <button class="tab active" onclick="showTab('weekly')">주간 통계</button> -->
                 <button class="tab active" onclick="showTab('monthly')">월간 통계</button>
                 <button class="tab" onclick="showTab('subjects')">과목별 통계</button>
                 <button class="tab" onclick="showTab('subject-chart')">과목별 차트</button>
             </div>
-
-            <!-- <div id="daily-content" class="tab-content active">
-                <div class="chart-container">
-                    <canvas id="dailyChart"></canvas>
-                </div>
-            </div> -->
-
-            <!-- <div id="weekly-content" class="tab-content active">
-                <div class="chart-container">
-                    <canvas id="weeklyChart"></canvas>
-                </div>
-            </div> -->
 
             <div id="monthly-content" class="tab-content active">
                 <div class="chart-container">
@@ -753,7 +739,6 @@
                 }
             });
         }
-        // work1 //
         async function loadAndCreateSubjectChart() {
             try {
                 const response = await fetch('/api/subject-comparison');
@@ -764,8 +749,6 @@
                 showNotification('과목별 차트 로드 실패', 'error');
             }
         }
-        // work1 end //
-
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
