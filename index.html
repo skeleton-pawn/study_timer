@@ -44,6 +44,7 @@
             margin-bottom: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             backdrop-filter: blur(10px);
+            position: relative;
         }
 
         .today-stats {
@@ -256,19 +257,27 @@
         }
 
         .notification {
-            position: fixed;
+            position: fixed; /* Correctly positioned relative to the viewport now */
             top: 20px;
             right: 20px;
-            padding: 15px 20px;
+            padding: 15px 25px;
             border-radius: 10px;
             color: white;
             font-weight: bold;
             z-index: 1000;
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
+            
+            /* Start position: off-screen to the right */
+            transform: translateX(110%); 
+            transition: transform 0.4s ease-in-out;
+
+            max-width: 300px;
+            word-wrap: break-word;
+            white-space: normal;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
 
         .notification.show {
+            /* End position: on-screen */
             transform: translateX(0);
         }
 
@@ -278,7 +287,11 @@
 
         .notification.error {
             background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            /* Use a more appropriate background for errors */
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff3838 100%);
         }
+
+        /* 2line ends here */
 
         @media (max-width: 768px) {
             .container {
@@ -364,10 +377,9 @@
                     <!-- 자바스크립트가 여기에 여러 개의 차트를 생성할 것입니다. -->
                 </div>
             </div>
-
+        </div>
     <!-- 알림 -->
     <div id="notification" class="notification"></div>
-
     <script>
         // 전역 변수
         let subjects = [];
@@ -546,7 +558,7 @@
         async function loadStatistics() {
             const periods = [
                 // { name: 'daily', days: 7, chartId: 'dailyChart' }, //
-                { name: 'weekly', days: 14, chartId: 'weeklyChart' },
+                // { name: 'weekly', days: 14, chartId: 'weeklyChart' }, //
                 { name: 'monthly', days: 30, chartId: 'monthlyChart' }
             ];
 
@@ -677,15 +689,21 @@
                 document.getElementById('subject-charts-container').innerHTML = '<p style="text-align:center; color:#999;">차트를 불러오는 중 오류가 발생했습니다.</p>';
             }
         }
+
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.add('show');
             
+            // Reset classes, then add the new ones
+            notification.className = 'notification'; // Base class
+            notification.classList.add(type);      // 'success' or 'error'
+            notification.classList.add('show');    // Triggers the animation
+            
+            // Hide the notification after 3 seconds
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 3000);
+        
         }
         function createSubjectComparisonChart(data) {
             const container = document.getElementById('subject-charts-container');
@@ -813,5 +831,6 @@
             });
         }
     </script>
+
 </body>
 </html>
