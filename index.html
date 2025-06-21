@@ -266,7 +266,6 @@
             font-weight: bold;
             z-index: 1000;
             
-            /* Start position: off-screen to the right */
             transform: translateX(110%); 
             transition: transform 0.4s ease-in-out;
 
@@ -277,7 +276,6 @@
         }
 
         .notification.show {
-            /* End position: on-screen */
             transform: translateX(0);
         }
 
@@ -286,12 +284,8 @@
         }
 
         .notification.error {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            /* Use a more appropriate background for errors */
             background: linear-gradient(135deg, #ff6b6b 0%, #ff3838 100%);
         }
-
-        /* 2line ends here */
 
         @media (max-width: 768px) {
             .container {
@@ -319,6 +313,26 @@
     </style>
 </head>
 <body>
+    <a href="/stopwatches" style="
+        position: fixed; 
+        top: 20px; 
+        left: 20px; 
+        padding: 10px 15px; 
+        background-color: #ffc107; 
+        color: black; 
+        text-decoration: none; 
+        border-radius: 8px; 
+        font-weight: bold;
+        z-index: 1001;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        transition: transform 0.2s ease;">
+        🚀 Stop Watches 바로가기
+    </a>
+    <style>
+        a[href="/stopwatches"]:hover {
+            transform: scale(1.05);
+        }
+    </style>
     <div class="container">
         <div class="header">
             <h1>📚 Study Timer</h1>
@@ -372,9 +386,7 @@
                 <div id="subject-comparison"></div>
             </div>  
             <div id="subject-chart-content" class="tab-content">
-                <!-- [수정] 여러 차트를 담을 컨테이너 div -->
                 <div id="subject-charts-container">
-                    <!-- 자바스크립트가 여기에 여러 개의 차트를 생성할 것입니다. -->
                 </div>
             </div>
         </div>
@@ -480,7 +492,7 @@
             showNotification(`${selectedSubject} 공부 시작!`, 'success');
         }
 
-        // 타이머 정지
+        // === START: 수정된 stopTimer 함수 ===
         async function stopTimer() {
             if (!isRunning) return;
             
@@ -517,12 +529,36 @@
                     loadStatistics();
                     loadSubjectComparison();
                 } else {
-                    showNotification(result.message || '기록 실패', 'error');
+                    // 기록 실패 시의 로직
+                    if (result.manual_update_info) {
+                        const info = result.manual_update_info;
+                        const alertMessage = `
+[기록 실패 - 수동 업데이트 필요]
+
+아래 내용을 복사하여 Google Sheets에 직접 입력해주세요.
+
+----------------------------------------
+Date: ${info.date}
+Subject: ${info.subject}
+Start Time: ${info.start_time_str}
+End Time: ${info.end_time_str}
+Duration: ${info.duration_seconds}
+----------------------------------------
+
+Error: ${result.details}
+                        `;
+                        alert(alertMessage);
+                    } else {
+                        // 'Session too short'와 같은 다른 종류의 에러 메시지 처리
+                        showNotification(result.message || '기록 실패', 'error');
+                    }
                 }
             } catch (error) {
-                showNotification('서버 오류', 'error');
+                showNotification('서버 통신 오류. 네트워크를 확인해주세요.', 'error');
             }
         }
+        // === END: 수정된 stopTimer 함수 ===
+
 
         // 타이머 표시 업데이트
         function updateTimerDisplay() {
@@ -545,20 +581,16 @@
             event.target.classList.add('active');
             document.getElementById(`${tabName}-content`).classList.add('active');
             
-            // 과목별 통계 탭이 선택되면 데이터 새로고침
             if (tabName === 'subjects') {
                 loadSubjectComparison();
             } else if (tabName === 'subject-chart') {
-                // '과목별 차트' 탭은 차트만 로드
-                loadAndCreateSubjectChart(); // 아래에 새로 만들 함수입니다.
+                loadAndCreateSubjectChart();
             }
         }
 
         // 통계 로드
         async function loadStatistics() {
             const periods = [
-                // { name: 'daily', days: 7, chartId: 'dailyChart' }, //
-                // { name: 'weekly', days: 14, chartId: 'weeklyChart' }, //
                 { name: 'monthly', days: 30, chartId: 'monthlyChart' }
             ];
 
@@ -578,7 +610,6 @@
         function createChart(chartId, data, type) {
             const ctx = document.getElementById(chartId).getContext('2d');
             
-            // 기존 차트 삭제
             if (charts[chartId]) {
                 charts[chartId].destroy();
             }
@@ -665,9 +696,6 @@
                     container.appendChild(card);
                 });
                 
-                // 과목별 비교 차트 생성
-                // createSubjectComparisonChart(data); //
-                
             } catch (error) {
                 console.error('Failed to load subject comparison:', error);
                 showNotification('과목별 통계 로드 실패', 'error');
@@ -675,17 +703,14 @@
         }
         async function loadAndCreateSubjectChart() {
             try {
-                // 1. 과목별 비교 데이터를 서버에서 가져옵니다.
                 const response = await fetch('/api/subject-comparison');
                 const data = await response.json();
                 
-                // 2. 가져온 데이터로 차트를 생성하는 함수를 호출합니다.
                 createSubjectComparisonChart(data);
 
             } catch (error) {
                 console.error('Failed to load subject comparison for charts:', error);
                 showNotification('과목별 차트 데이터 로드 실패', 'error');
-                // 에러 발생 시 차트 컨테이너에 메시지를 표시합니다.
                 document.getElementById('subject-charts-container').innerHTML = '<p style="text-align:center; color:#999;">차트를 불러오는 중 오류가 발생했습니다.</p>';
             }
         }
@@ -694,12 +719,10 @@
             const notification = document.getElementById('notification');
             notification.textContent = message;
             
-            // Reset classes, then add the new ones
-            notification.className = 'notification'; // Base class
-            notification.classList.add(type);      // 'success' or 'error'
-            notification.classList.add('show');    // Triggers the animation
+            notification.className = 'notification';
+            notification.classList.add(type);
+            notification.classList.add('show');
             
-            // Hide the notification after 3 seconds
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 3000);
@@ -708,14 +731,11 @@
         function createSubjectComparisonChart(data) {
             const container = document.getElementById('subject-charts-container');
             
-            // 1. 기존 차트 파괴 및 컨테이너 비우기
             Object.keys(charts).forEach(chartId => {
-                // ID가 'subjectChart-'로 시작하는 차트만 파괴합니다.
                 if (chartId.startsWith('subjectChart-')) {
                     if (charts[chartId] && typeof charts[chartId].destroy === 'function') {
                         charts[chartId].destroy();
                     }
-                    // 파괴된 차트는 전역 charts 객체에서도 깔끔하게 제거합니다.
                     delete charts[chartId];
                 }
             });
@@ -734,7 +754,6 @@
                 'rgba(199, 199, 199, 0.8)', 'rgba(231, 76, 60, 0.8)'
             ];
 
-            // 기간별로 순회하며 차트 생성
             periods.forEach(period => {
                 const periodData = data[period.key];
 
