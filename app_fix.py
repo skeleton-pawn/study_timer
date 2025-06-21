@@ -29,9 +29,15 @@ def ensure_header_exists():
         if not headers or len(headers) != 5:
             sheet.clear()
             sheet.append_row(["Date", "Subject", "Start Time", "End Time", "Duration"])
-    except:
+    except gspread.exceptions.APIError: # 좀 더 구체적인 예외 처리
+        # 시트가 비어있거나 접근 오류 시 헤더 생성
         sheet.clear()
         sheet.append_row(["Date", "Subject", "Start Time", "End Time", "Duration"])
+    except Exception:
+        # 기타 예외 상황
+        sheet.clear()
+        sheet.append_row(["Date", "Subject", "Start Time", "End Time", "Duration"])
+
 
 # 앱 시작시 헤더 확인
 ensure_header_exists()
@@ -40,6 +46,11 @@ ensure_header_exists()
 def index():
     """메인 페이지"""
     return render_template('index.html')
+
+@app.route('/stopwatches')
+def multi_stopwatch_page():
+    """40개의 멀티 스톱워치 페이지를 렌더링합니다."""
+    return render_template('multi.html')
 
 @app.route('/api/subjects')
 def get_subjects():
@@ -78,33 +89,50 @@ def get_today_stats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# === START: 수정된 record_session 함수 ===
 @app.route('/api/record-session', methods=['POST'])
 def record_session():
     """공부 세션 기록"""
+    data = request.json
+    subject = data.get('subject')
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+    duration = data.get('duration')
+        
+    # 60초 미만은 기록하지 않음
+    if duration < 60:
+        return jsonify({'message': 'Session too short, not recorded'}), 400
+        
+    # Google Sheets에 기록할 데이터 미리 준비
+    start_str = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')
+    end_str = datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')
+    custom_date = get_custom_date()
+    
     try:
-        data = request.json
-        subject = data.get('subject')
-        start_time = data.get('start_time')
-        end_time = data.get('end_time')
-        duration = data.get('duration')
-        
-        # 60초 미만은 기록하지 않음
-        if duration < 60:
-            return jsonify({'message': 'Session too short, not recorded'}), 400
-        
-        # Google Sheets에 기록
-        start_str = datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')
-        end_str = datetime.fromtimestamp(end_time).strftime('%Y-%m-%d %H:%M:%S')
-        custom_date = get_custom_date()
-        
-        sheet.append_row([custom_date, subject, start_str, end_str, duration])
+        # Google Sheets에 기록 시도
+        sheet.append_row([custom_date, subject, start_str, end_str, int(duration)])
         
         return jsonify({
             'message': 'Session recorded successfully',
             'duration_minutes': round(duration / 60, 2)
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        # 기록 실패 시, 수동 업데이트를 위한 정보를 포함하여 에러 응답 반환
+        manual_update_info = {
+            "date": custom_date,
+            "subject": subject,
+            "start_time_str": start_str,
+            "end_time_str": end_str,
+            "duration_seconds": int(duration)
+        }
+        
+        return jsonify({
+            'error': 'Google Sheets 기록에 실패했습니다. 아래 정보를 수동으로 업데이트해주세요.',
+            'details': str(e), # 실제 에러 원인 (디버깅용)
+            'manual_update_info': manual_update_info
+        }), 500
+# === END: 수정된 record_session 함수 ===
+
 
 @app.route('/api/statistics/<int:days>')
 def get_statistics(days):
