@@ -1,0 +1,10 @@
+# Google Sheets 인증 정보 (절대 공개 저장소에 올리지 마세요!)
+credentials.json
+
+# Python 관련 파일
+__pycache__/
+*.pyc
+
+# 운영체제/에디터 파일
+.DS_Store
+.vscode/
