@@ -1,0 +1,4 @@
+wheel==0.45.1
+Flask
+gspread
+oauth2client
