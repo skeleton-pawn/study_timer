@@ -51,7 +51,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            margin-bottom: 20px;
+            /* margin-bottom: 20px; */ /* 동기부여 메시지가 없을 경우를 대비해 여백은 메시지 쪽에서 관리 */
         }
 
         .stat-item {
@@ -69,6 +69,57 @@
 
         .stat-item p {
             opacity: 0.9;
+        }
+
+        /* [추가] 동기부여 메시지 스타일 */
+        .motivation-message {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+            color: #333;
+            padding: 15px 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin: 20px 0; /* 위아래로 20px 여백 */
+            box-shadow: 0 4px 15px rgba(255, 154, 158, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            animation: motivationFadeIn 0.8s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .motivation-message::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: motivationShine 2s ease-in-out infinite;
+        }
+
+        @keyframes motivationFadeIn {
+            0% {
+                transform: scale(0.9) translateY(-10px);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes motivationShine {
+            0% {
+                left: -100%;
+            }
+            50% {
+                left: 100%;
+            }
+            100% {
+                left: 100%;
+            }
         }
 
         .timer-section {
@@ -257,7 +308,7 @@
         }
 
         .notification {
-            position: fixed; /* Correctly positioned relative to the viewport now */
+            position: fixed;
             top: 20px;
             right: 20px;
             padding: 15px 25px;
@@ -265,10 +316,8 @@
             color: white;
             font-weight: bold;
             z-index: 1000;
-            
             transform: translateX(110%); 
             transition: transform 0.4s ease-in-out;
-
             max-width: 300px;
             word-wrap: break-word;
             white-space: normal;
@@ -291,20 +340,16 @@
             .container {
                 padding: 10px;
             }
-
             .header h1 {
                 font-size: 2em;
             }
-
             .timer-display {
                 font-size: 2.5em;
             }
-
             .control-buttons {
                 flex-direction: column;
                 align-items: center;
             }
-
             .btn {
                 width: 100%;
                 max-width: 300px;
@@ -351,6 +396,7 @@
                     <p>공부 날짜 (3AM 기준)</p>
                 </div>
             </div>
+            <!-- 동기부여 메시지가 여기에 삽입됩니다 -->
             <div id="subject-stats" class="subject-list"></div>
         </div>
 
@@ -392,6 +438,7 @@
         </div>
     <!-- 알림 -->
     <div id="notification" class="notification"></div>
+
     <script>
         // 전역 변수
         let subjects = [];
@@ -449,14 +496,42 @@
             });
         }
 
-        // 오늘 통계 로드
+        // [수정 1] 동기부여 메시지 표시를 위한 새로운 함수
+        function showMotivationMessage(message) {
+            // 기존 메시지가 있다면 먼저 제거
+            const existingMessage = document.getElementById('motivation-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            
+            // 서버에서 받은 메시지가 없으면 함수 종료
+            if (!message) return;
+
+            // 새 메시지 요소 생성
+            const messageDiv = document.createElement('div');
+            messageDiv.id = 'motivation-message';
+            messageDiv.className = 'motivation-message';
+            messageDiv.textContent = message;
+            
+            // [수정 2] 메시지를 화면에 실제로 추가하는 누락된 코드
+            const parentCard = document.querySelector('.today-stats').parentElement;
+            const subjectStats = document.getElementById('subject-stats');
+            parentCard.insertBefore(messageDiv, subjectStats);
+        }
+        
+        // [수정 3] 중복되고 꼬인 구조를 바로잡은 `loadTodayStats` 함수
         async function loadTodayStats() {
             try {
                 const response = await fetch('/api/today-stats');
+                if (!response.ok) throw new Error('Failed to fetch stats');
+                
                 const data = await response.json();
                 
                 document.getElementById('total-hours').textContent = data.total_hours;
                 document.getElementById('study-date').textContent = data.date;
+                
+                // 동기부여 메시지 표시 함수 호출
+                showMotivationMessage(data.motivation_message);
                 
                 const subjectStats = document.getElementById('subject-stats');
                 subjectStats.innerHTML = '';
@@ -471,10 +546,12 @@
                     subjectStats.appendChild(div);
                 });
             } catch (error) {
+                console.error('Failed to load today stats:', error);
                 showNotification('통계 로드 실패', 'error');
             }
         }
-
+        
+        // [수정 4] 모든 함수들이 독립적으로 존재하도록 구조 수정
         // 타이머 시작
         function startTimer() {
             if (!selectedSubject) {
@@ -492,7 +569,7 @@
             showNotification(`${selectedSubject} 공부 시작!`, 'success');
         }
 
-        // === START: 수정된 stopTimer 함수 ===
+        // 타이머 정지 및 기록
         async function stopTimer() {
             if (!isRunning) return;
             
@@ -510,9 +587,7 @@
             try {
                 const response = await fetch('/api/record-session', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         subject: selectedSubject,
                         start_time: startTime / 1000,
@@ -525,31 +600,15 @@
                 
                 if (response.ok) {
                     showNotification(`${result.duration_minutes}분 기록 완료!`, 'success');
-                    loadTodayStats();
+                    loadTodayStats(); // 이 함수가 동기부여 메시지를 포함한 모든 통계를 새로고침합니다.
                     loadStatistics();
                     loadSubjectComparison();
                 } else {
-                    // 기록 실패 시의 로직
                     if (result.manual_update_info) {
                         const info = result.manual_update_info;
-                        const alertMessage = `
-[기록 실패 - 수동 업데이트 필요]
-
-아래 내용을 복사하여 Google Sheets에 직접 입력해주세요.
-
-----------------------------------------
-Date: ${info.date}
-Subject: ${info.subject}
-Start Time: ${info.start_time_str}
-End Time: ${info.end_time_str}
-Duration: ${info.duration_seconds}
-----------------------------------------
-
-Error: ${result.details}
-                        `;
+                        const alertMessage = `[기록 실패 - 수동 업데이트 필요]\n\n아래 내용을 복사하여 Google Sheets에 직접 입력해주세요.\n\n----------------------------------------\nDate: ${info.date}\nSubject: ${info.subject}\nStart Time: ${info.start_time_str}\nEnd Time: ${info.end_time_str}\nDuration: ${info.duration_seconds}\n----------------------------------------\n\nError: ${result.details}`;
                         alert(alertMessage);
                     } else {
-                        // 'Session too short'와 같은 다른 종류의 에러 메시지 처리
                         showNotification(result.message || '기록 실패', 'error');
                     }
                 }
@@ -557,8 +616,6 @@ Error: ${result.details}
                 showNotification('서버 통신 오류. 네트워크를 확인해주세요.', 'error');
             }
         }
-        // === END: 수정된 stopTimer 함수 ===
-
 
         // 타이머 표시 업데이트
         function updateTimerDisplay() {
@@ -598,8 +655,7 @@ Error: ${result.details}
                 try {
                     const response = await fetch(`/api/statistics/${period.days}`);
                     const data = await response.json();
-                    
-                    createChart(period.chartId, data, period.name);
+                    createChart(period.chartId, data);
                 } catch (error) {
                     console.error(`Failed to load ${period.name} statistics:`, error);
                 }
@@ -607,28 +663,26 @@ Error: ${result.details}
         }
 
         // 차트 생성
-        function createChart(chartId, data, type) {
+        function createChart(chartId, data) {
             const ctx = document.getElementById(chartId).getContext('2d');
             
             if (charts[chartId]) {
                 charts[chartId].destroy();
             }
             
-            const chartData = {
-                labels: Object.keys(data.daily_stats),
-                datasets: [{
-                    label: '공부시간 (시간)',
-                    data: Object.values(data.daily_stats),
-                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
-                    borderColor: 'rgba(102, 126, 234, 1)',
-                    borderWidth: 2,
-                    fill: true
-                }]
-            };
-            
             charts[chartId] = new Chart(ctx, {
                 type: 'line',
-                data: chartData,
+                data: {
+                    labels: Object.keys(data.daily_stats),
+                    datasets: [{
+                        label: '공부시간 (시간)',
+                        data: Object.values(data.daily_stats),
+                        backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
@@ -636,10 +690,7 @@ Error: ${result.details}
                         y: {
                             beginAtZero: true,
                             max: 8,
-                            title: {
-                                display: true,
-                                text: '시간'
-                            }
+                            title: { display: true, text: '시간' }
                         }
                     }
                 }
@@ -657,10 +708,10 @@ Error: ${result.details}
                 container.className = 'comparison-grid';
                 
                 const periods = [
-                    { key: '3days', title: '최근 3일', days: 3 },
-                    { key: '7days', title: '최근 7일', days: 7 },
-                    { key: '14days', title: '최근 14일', days: 14 },
-                    { key: '30days', title: '최근 30일', days: 30 }
+                    { key: '3days', title: '최근 3일' },
+                    { key: '7days', title: '최근 7일' },
+                    { key: '14days', title: '최근 14일' },
+                    { key: '30days', title: '최근 30일' }
                 ];
                 
                 periods.forEach(period => {
@@ -670,17 +721,14 @@ Error: ${result.details}
                     const card = document.createElement('div');
                     card.className = 'period-card';
                     
-                    let subjectRows = '';
-                    Object.entries(periodData.subjects).forEach(([subject, stats]) => {
-                        if (stats.hours > 0) {
-                            subjectRows += `
-                                <div class="subject-row">
-                                    <span class="subject-name">${subject}</span>
-                                    <span class="subject-time">${stats.hours}시간</span>
-                                </div>
-                            `;
-                        }
-                    });
+                    let subjectRows = Object.entries(periodData.subjects)
+                        .filter(([_, stats]) => stats.hours > 0)
+                        .map(([subject, stats]) => `
+                            <div class="subject-row">
+                                <span class="subject-name">${subject}</span>
+                                <span class="subject-time">${stats.hours}시간</span>
+                            </div>
+                        `).join('');
                     
                     card.innerHTML = `
                         <div class="period-title">${period.title}</div>
@@ -701,13 +749,13 @@ Error: ${result.details}
                 showNotification('과목별 통계 로드 실패', 'error');
             }
         }
+
+        // 과목별 차트 데이터 로드 및 생성
         async function loadAndCreateSubjectChart() {
             try {
                 const response = await fetch('/api/subject-comparison');
                 const data = await response.json();
-                
                 createSubjectComparisonChart(data);
-
             } catch (error) {
                 console.error('Failed to load subject comparison for charts:', error);
                 showNotification('과목별 차트 데이터 로드 실패', 'error');
@@ -715,27 +763,26 @@ Error: ${result.details}
             }
         }
 
+        // 일시적 알림 표시
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
             
             notification.className = 'notification';
-            notification.classList.add(type);
-            notification.classList.add('show');
+            notification.classList.add(type, 'show');
             
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 3000);
-        
         }
+
+        // 과목별 비교 차트 생성
         function createSubjectComparisonChart(data) {
             const container = document.getElementById('subject-charts-container');
             
             Object.keys(charts).forEach(chartId => {
-                if (chartId.startsWith('subjectChart-')) {
-                    if (charts[chartId] && typeof charts[chartId].destroy === 'function') {
-                        charts[chartId].destroy();
-                    }
+                if (chartId.startsWith('subjectChart-') && charts[chartId]) {
+                    charts[chartId].destroy();
                     delete charts[chartId];
                 }
             });
@@ -756,7 +803,6 @@ Error: ${result.details}
 
             periods.forEach(period => {
                 const periodData = data[period.key];
-
                 const chartWrapper = document.createElement('div');
                 chartWrapper.className = 'chart-wrapper';
                 chartWrapper.style.marginBottom = '50px';
@@ -767,7 +813,7 @@ Error: ${result.details}
                 title.style.color = '#667eea';
                 chartWrapper.appendChild(title);
 
-                if (!periodData || Object.keys(periodData.subjects).length === 0 || periodData.total_hours === 0) {
+                if (!periodData || periodData.total_hours === 0) {
                     const noDataMessage = document.createElement('p');
                     noDataMessage.textContent = '이 기간의 공부 기록이 없습니다.';
                     noDataMessage.style.textAlign = 'center';
@@ -779,37 +825,30 @@ Error: ${result.details}
                 }
 
                 const filteredSubjects = Object.entries(periodData.subjects)
-                    .filter(([subject, stats]) => stats.hours > 0)
+                    .filter(([_, stats]) => stats.hours > 0)
                     .sort((a, b) => b[1].hours - a[1].hours);
 
                 const labels = filteredSubjects.map(entry => entry[0]);
                 const values = filteredSubjects.map(entry => entry[1].hours);
                 
-                const numLabels = labels.length;
-                const barHeight = 40;
-                const padding = 80;
-                const dynamicHeight = (numLabels * barHeight) + padding;
+                const dynamicHeight = (labels.length * 40) + 80;
 
                 const canvas = document.createElement('canvas');
                 const chartId = `subjectChart-${period.key}`;
                 canvas.id = chartId;
                 
                 const chartContainer = document.createElement('div');
-                chartContainer.className = 'chart-container';
                 chartContainer.style.height = `${dynamicHeight}px`; 
                 chartContainer.appendChild(canvas);
                 chartWrapper.appendChild(chartContainer);
-
                 container.appendChild(chartWrapper);
-                
-                const ctx = canvas.getContext('2d');
                 
                 const backgroundColors = labels.map(subject => {
                     const subjectIndex = subjects.indexOf(subject);
                     return globalColors[subjectIndex % globalColors.length];
                 });
 
-                charts[chartId] = new Chart(ctx, {
+                charts[chartId] = new Chart(canvas.getContext('2d'), {
                     type: 'bar',
                     data: {
                         labels: labels,
@@ -824,32 +863,14 @@ Error: ${result.details}
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
-                            x: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: '시간'
-                                }
-                            },
-                            y: {
-                                ticks: {
-                                    autoSkip: false
-                                }
-                            }
+                            x: { beginAtZero: true, title: { display: true, text: '시간' } },
+                            y: { ticks: { autoSkip: false } }
                         },
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            title: {
-                                display: false
-                            }
-                        }
+                        plugins: { legend: { display: false } }
                     }
                 });
             });
         }
     </script>
-
 </body>
 </html>
