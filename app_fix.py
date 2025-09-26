@@ -59,15 +59,26 @@ def get_subjects():
 
 @app.route('/api/today-stats')
 def get_today_stats():
-    """오늘 공부 통계"""
+    """오늘 공부 통계 (동기부여 메시지 포함)"""
     try:
         today_date = get_custom_date()
-        all_data = sheet.get_all_records()
-        today_data = [record for record in all_data if record.get('Date', '') == today_date]
+        yesterday_date = get_yesterday_date()
         
-        # 총 공부시간
-        total_seconds = sum(record.get('Duration', 0) for record in today_data)
-        total_hours = total_seconds / 3600
+        all_data = sheet.get_all_records()
+        
+        today_data = [record for record in all_data if record.get('Date', '') == today_date]
+        yesterday_data = [record for record in all_data if record.get('Date', '') == yesterday_date]
+
+        # 총 공부시간 오늘
+        today_total_seconds = sum(record.get('Duration', 0) for record in today_data)
+        today_total_hours = today_total_seconds / 3600
+
+        # 총 공부시간 어제
+        yesterday_total_seconds = sum(record.get('Duration', 0) for record in yesterday_data)
+        yesterday_total_hours = yesterday_total_seconds / 3600
+        
+        # 동기부여 메시지
+        motivation_message = get_motivation_message(today_total_hours, yesterday_total_hours)
         
         # 과목별 공부시간
         subject_times = {}
@@ -80,14 +91,50 @@ def get_today_stats():
                     'hours': subject_seconds / 3600
                 }
         
-        return jsonify({
+        response_data = {
             'date': today_date,
-            'total_hours': round(total_hours, 2),
+            'total_hours': round(today_total_hours, 2),
             'subject_times': subject_times,
             'current_time': datetime.now().strftime('%H:%M:%S')
-        })
+        }
+        # 동기부여 메시지가 있을 때만 응답에 포함
+        if motivation_message:
+            response_data['motivation_message'] = motivation_message
+
+        return jsonify(response_data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# /api/today-stats 라우트 위에 추가할 헬퍼 함수들
+def get_yesterday_date():
+    """어제 날짜 계산 (3AM 기준)"""
+    now = datetime.now()
+    if now.hour < 3:
+        # 현재 시간이 3시 이전이면 '오늘'은 어제 날짜이므로, '어제'는 이틀 전 날짜가 됨
+        return (now - timedelta(days=2)).strftime('%Y-%m-%d')
+    else:
+        # 현재 시간이 3시 이후면 '오늘'은 오늘 날짜이므로, '어제'는 어제 날짜가 됨
+        return (now - timedelta(days=1)).strftime('%Y-%m-%d')
+
+def get_motivation_message(today_hours, yesterday_hours):
+    """동기부여 메시지 생성 (요청대로 '같은 페이스' 메시지 제외)"""
+    # 어제 기록이 없거나 0시간인 경우
+    if yesterday_hours == 0:
+        if today_hours > 0:
+            return "새로운 시작이네요! 오늘도 화이팅! 🌟"
+        else:
+            return "오늘부터 시작해보세요! 💪"
+    
+    # 어제와 오늘 비교
+    if today_hours > yesterday_hours:
+        improvement = today_hours - yesterday_hours
+        return f"어제의 나를 넘어서고 있습니다! (+{improvement:.1f}시간) 🎉"
+    elif today_hours < yesterday_hours:
+        gap = yesterday_hours - today_hours
+        return f"이길 수 있어요 힘내요! (어제보다 -{gap:.1f}시간) 💪"
+    
+    # 그 외의 경우 (오늘과 어제 공부 시간이 같은 경우) 메시지를 반환하지 않음
+    return None
 
 # === START: 수정된 record_session 함수 ===
 @app.route('/api/record-session', methods=['POST'])
